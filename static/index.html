@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ropita · Asistente de estilo</title>
+<link rel="icon" href="ropita-avatar.svg">
+<style>
+  :root { --morado:#7C3AED; --morado-claro:#EDE9FE; --rosa:#EC4899; --texto:#1F1235; --gris:#6B7280; --fondo:#F7F5FB; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--fondo); color:var(--texto); }
+  .app { max-width:520px; height:100dvh; margin:0 auto; display:flex; flex-direction:column; background:#fff; box-shadow:0 0 40px rgba(124,58,237,.12); }
+  header { display:flex; align-items:center; gap:12px; padding:14px 16px; background:linear-gradient(135deg,#8B5CF6,#7C3AED); color:#fff; }
+  header img { width:48px; height:48px; border-radius:50%; background:#fff; }
+  header h1 { font-size:18px; margin:0; }
+  header p { margin:2px 0 0; font-size:13px; opacity:.85; }
+  #chat { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  #chat > * { flex-shrink:0; }
+  .msg { display:flex; gap:8px; align-items:flex-end; max-width:88%; }
+  .msg img { width:30px; height:30px; flex:none; }
+  .burbuja { padding:10px 14px; border-radius:18px; line-height:1.45; font-size:15px; white-space:pre-wrap; }
+  .bot .burbuja { background:var(--morado-claro); border-bottom-left-radius:4px; }
+  .user { align-self:flex-end; }
+  .user .burbuja { background:var(--morado); color:#fff; border-bottom-right-radius:4px; }
+  .opciones { display:flex; flex-wrap:wrap; gap:8px; margin-left:38px; }
+  .opciones button { border:1.5px solid var(--morado); background:#fff; color:var(--morado); padding:8px 14px; border-radius:999px; font-size:14px; cursor:pointer; }
+  .opciones button:hover { background:var(--morado); color:#fff; }
+  .card { margin-left:38px; border:1px solid #E9D5FF; border-radius:16px; overflow:hidden; font-size:14px; }
+  .card h3 { margin:0; padding:10px 14px; background:linear-gradient(135deg,#F472B6,#A78BFA); color:#fff; font-size:15px; }
+  .card dl { margin:0; padding:10px 14px; display:grid; grid-template-columns:auto 1fr; gap:6px 10px; }
+  .card dt { color:var(--gris); }
+  .card dd { margin:0; font-weight:500; }
+  .card .consejo { padding:10px 14px; background:#FDF4FF; border-top:1px solid #F5D0FE; }
+  form { display:flex; gap:8px; padding:12px; border-top:1px solid #eee; }
+  input { flex:1; padding:12px 14px; border:1.5px solid #DDD6FE; border-radius:999px; font-size:15px; outline:none; }
+  input:focus { border-color:var(--morado); }
+  input:disabled { background:#f3f3f3; }
+  form button { border:0; background:var(--morado); color:#fff; padding:0 18px; border-radius:999px; font-size:15px; cursor:pointer; }
+  form button:disabled { opacity:.5; cursor:default; }
+  footer { padding:10px 16px 12px; text-align:center; font-size:12px; line-height:1.5; color:var(--gris); background:#FAF7FF; border-top:1px solid #EEE; }
+  footer strong { color:var(--morado); }
+  .escribiendo { color:var(--gris); font-style:italic; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <img src="ropita-avatar.svg" alt="Ropita">
+    <div><h1>Ropita</h1><p>Tu asistente de estilo · outfit según clima y ocasión</p></div>
+  </header>
+  <main id="chat" aria-live="polite"></main>
+  <form id="form">
+    <input id="texto" placeholder="Responde las preguntas para empezar…" autocomplete="off" disabled>
+    <button id="enviar" disabled>Enviar</button>
+  </form>
+  <footer>
+    Creado por <strong>Laura Galindo · Valentina Rodríguez · Sara Cárdenas · Joseth Sierra</strong><br>
+    Grado 1002 · © 2026
+  </footer>
+</div>
+
+<script>
+const chat = document.getElementById('chat');
+const form = document.getElementById('form');
+const input = document.getElementById('texto');
+const btn = document.getElementById('enviar');
+let respuestas = {}, outfit = null, historial = [];
+
+const api = (ruta, cuerpo) => fetch(ruta, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cuerpo) })
+  .then(async r => ({ ok:r.ok, datos: await r.json() }));
+
+function burbuja(texto, quien = 'bot') {
+  const div = document.createElement('div');
+  div.className = 'msg ' + quien;
+  if (quien === 'bot') div.innerHTML = '<img src="ropita-avatar.svg" alt="">';
+  const b = document.createElement('div');
+  b.className = 'burbuja'; b.textContent = texto;
+  div.appendChild(b); chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return b;
+}
+
+function botones(lista, alElegir) {
+  const cont = document.createElement('div');
+  cont.className = 'opciones';
+  lista.forEach(op => {
+    const b = document.createElement('button');
+    b.textContent = op;
+    b.onclick = () => { cont.remove(); alElegir(op); };
+    cont.appendChild(b);
+  });
+  chat.appendChild(cont); chat.scrollTop = chat.scrollHeight;
+}
+
+async function siguiente() {
+  const { datos } = await api('/api/siguiente', { respuestas });
+  if (datos.fin) return recomendar();
+  burbuja(datos.pregunta);
+  botones(datos.opciones, op => { burbuja(op, 'user'); respuestas[datos.clave] = op; siguiente(); });
+}
+
+async function recomendar() {
+  const { ok, datos } = await api('/api/recomendar', { respuestas });
+  if (!ok) { burbuja(datos.error); return reiniciar(); }
+  outfit = datos.outfit;
+  burbuja(`¡Listo! Este es tu outfit para ${outfit.ocasion.toLowerCase()} ✨`);
+  const card = document.createElement('div');
+  card.className = 'card';
+  const filas = [['👕 Superior', outfit.prenda_superior], ['👖 Inferior', outfit.prenda_inferior], ['👟 Calzado', outfit.calzado],
+                 ['🧥 Abrigo', outfit.capa_abrigo], ['💍 Accesorio', outfit.accesorio], ['🎨 Colores', outfit.paleta_colores]];
+  card.innerHTML = `<h3>${outfit.perfil} · ${outfit.formalidad} · ${outfit.clima} · ${outfit.momento}</h3><dl></dl><div class="consejo"></div>`;
+  const dl = card.querySelector('dl');
+  filas.forEach(([k, v]) => {
+    const dt = document.createElement('dt'), dd = document.createElement('dd');
+    dt.textContent = k; dd.textContent = v; dl.append(dt, dd);
+  });
+  card.querySelector('.consejo').textContent = '💡 ' + outfit.consejo;
+  chat.appendChild(card);
+  burbuja('¿Quieres otra opción, cambiar colores o saber qué evitar? Escríbeme abajo (uso IA con Ollama) o empieza de nuevo.');
+  input.disabled = btn.disabled = false;
+  input.placeholder = 'Ej: ¿qué colores combinan con un jean negro?';
+  input.focus();
+  botones(['🔄 Nuevo outfit'], reiniciar);
+}
+
+function reiniciar() {
+  respuestas = {}; outfit = null; historial = [];
+  input.disabled = btn.disabled = true; input.value = '';
+  input.placeholder = 'Responde las preguntas para empezar…';
+  siguiente();
+}
+
+form.onsubmit = async e => {
+  e.preventDefault();
+  const mensaje = input.value.trim();
+  if (!mensaje) return;
+  burbuja(mensaje, 'user'); input.value = ''; btn.disabled = true;
+  const espera = burbuja('Ropita está pensando…'); espera.classList.add('escribiendo');
+  const { ok, datos } = await api('/api/chat', { respuestas, outfit, mensaje, historial });
+  espera.parentElement.remove();
+  const texto = ok ? datos.respuesta : '⚠️ ' + datos.error;
+  burbuja(texto);
+  if (ok) historial.push({ role:'user', content:mensaje }, { role:'assistant', content:texto });
+  btn.disabled = false; input.focus();
+};
+
+siguiente();
+</script>
+</body>
+</html>

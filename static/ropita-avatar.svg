@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Ropita, asistente de estilo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F3E8FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="128" cy="128" r="124" fill="url(#bg)"/>
+  <!-- percha (gancho) -->
+  <path d="M128 70 V58 a14 14 0 1 1 14 -14" fill="none" stroke="#FDE68A" stroke-width="8" stroke-linecap="round"/>
+  <path d="M128 70 L60 104 H196 Z" fill="none" stroke="#FDE68A" stroke-width="8" stroke-linejoin="round"/>
+  <!-- cabeza -->
+  <rect x="62" y="96" width="132" height="104" rx="46" fill="url(#face)"/>
+  <!-- ojos -->
+  <ellipse cx="104" cy="140" rx="10" ry="13" fill="#2E1065"/>
+  <ellipse cx="152" cy="140" rx="10" ry="13" fill="#2E1065"/>
+  <circle cx="107" cy="135" r="3.5" fill="#fff"/>
+  <circle cx="155" cy="135" r="3.5" fill="#fff"/>
+  <!-- mejillas -->
+  <ellipse cx="86" cy="162" rx="10" ry="6" fill="#F9A8D4" opacity=".8"/>
+  <ellipse cx="170" cy="162" rx="10" ry="6" fill="#F9A8D4" opacity=".8"/>
+  <!-- sonrisa -->
+  <path d="M112 166 q16 14 32 0" fill="none" stroke="#2E1065" stroke-width="6" stroke-linecap="round"/>
+  <!-- corbatín -->
+  <path d="M128 212 L100 198 V226 Z M128 212 L156 198 V226 Z" fill="#F472B6"/>
+  <circle cx="128" cy="212" r="7" fill="#EC4899"/>
+  <!-- destellos -->
+  <path d="M206 64 l5 12 12 5 -12 5 -5 12 -5 -12 -12 -5 12 -5z" fill="#FDE68A"/>
+  <path d="M46 170 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z" fill="#FDE68A"/>
+</svg>
