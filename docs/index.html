@@ -66,8 +66,16 @@ const input = document.getElementById('texto');
 const btn = document.getElementById('enviar');
 let respuestas = {}, outfit = null, historial = [];
 
+// En GitHub Pages no hay servidor ni Ollama: solo funcionan las preguntas guiadas.
+const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+let OUTFITS = [], PREGUNTAS = [];
+
 const api = (ruta, cuerpo) => fetch(ruta, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cuerpo) })
-  .then(async r => ({ ok:r.ok, datos: await r.json() }));
+  .then(async r => ({ ok:r.ok, datos: await r.json() }))
+  .catch(() => ({ ok:false, datos:{ error:'No pude conectar con el servidor de Ropita.' } }));
+
+const limpiar = v => String(v).replace(/\s*\(.*\)$/, '').trim();  // 'Infantil (3-12 años)' -> 'Infantil'
+const filtrar = r => OUTFITS.filter(o => Object.entries(r).every(([k, v]) => o[k] === limpiar(v)));
 
 function burbuja(texto, quien = 'bot') {
   const div = document.createElement('div');
@@ -92,17 +100,19 @@ function botones(lista, alElegir) {
   chat.appendChild(cont); chat.scrollTop = chat.scrollHeight;
 }
 
-async function siguiente() {
-  const { datos } = await api('/api/siguiente', { respuestas });
-  if (datos.fin) return recomendar();
-  burbuja(datos.pregunta);
-  botones(datos.opciones, op => { burbuja(op, 'user'); respuestas[datos.clave] = op; siguiente(); });
+function siguiente() {
+  const p = PREGUNTAS.find(p => !(p.clave in respuestas));
+  if (!p) return recomendar();
+  // Solo se ofrecen opciones que tengan al menos un outfit con las respuestas previas
+  const posibles = new Set(filtrar(respuestas).map(o => o[p.clave]));
+  burbuja(p.pregunta);
+  botones(p.opciones.split('|').filter(op => posibles.has(limpiar(op))),
+          op => { burbuja(op, 'user'); respuestas[p.clave] = op; siguiente(); });
 }
 
-async function recomendar() {
-  const { ok, datos } = await api('/api/recomendar', { respuestas });
-  if (!ok) { burbuja(datos.error); return reiniciar(); }
-  outfit = datos.outfit;
+function recomendar() {
+  outfit = filtrar(respuestas)[0];
+  if (!outfit) { burbuja('No encontré un outfit para esa combinación.'); return reiniciar(); }
   burbuja(`¡Listo! Este es tu outfit para ${outfit.ocasion.toLowerCase()} ✨`);
   const card = document.createElement('div');
   card.className = 'card';
@@ -116,10 +126,14 @@ async function recomendar() {
   });
   card.querySelector('.consejo').textContent = '💡 ' + outfit.consejo;
   chat.appendChild(card);
-  burbuja('¿Quieres otra opción, cambiar colores o saber qué evitar? Escríbeme abajo (uso IA con Ollama) o empieza de nuevo.');
-  input.disabled = btn.disabled = false;
-  input.placeholder = 'Ej: ¿qué colores combinan con un jean negro?';
-  input.focus();
+  if (LOCAL) {
+    burbuja('¿Quieres otra opción, cambiar colores o saber qué evitar? Escríbeme abajo (uso IA con Ollama) o empieza de nuevo.');
+    input.disabled = btn.disabled = false;
+    input.placeholder = 'Ej: ¿qué colores combinan con un jean negro?';
+    input.focus();
+  } else {
+    burbuja('¿Quieres pedir otro outfit? Toca el botón. (El chat libre con IA funciona al ejecutar Ropita en tu computador con Ollama.)');
+  }
   botones(['🔄 Nuevo outfit'], reiniciar);
 }
 
@@ -144,7 +158,8 @@ form.onsubmit = async e => {
   btn.disabled = false; input.focus();
 };
 
-siguiente();
+fetch('ropita_data.json').then(r => r.json()).then(d => { OUTFITS = d.outfits; PREGUNTAS = d.preguntas; siguiente(); })
+  .catch(() => burbuja('No pude cargar la base de datos de Ropita.'));
 </script>
 </body>
 </html>
