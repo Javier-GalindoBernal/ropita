@@ -28,10 +28,14 @@ def exportar_json():
     """Convierte el Excel en docs/ropita_data.json, que es lo que lee el frontend (también en GitHub Pages)."""
     wb = load_workbook(EXCEL, read_only=True)
     datos = {"outfits": leer_hoja(wb, "Outfits"),
-             "preguntas": sorted(leer_hoja(wb, "Preguntas"), key=lambda p: p["orden"])}
+             "preguntas": sorted(leer_hoja(wb, "Preguntas"), key=lambda p: p["orden"]),
+             "estaturas": leer_hoja(wb, "Estaturas"),
+             "estilos": leer_hoja(wb, "Estilos"),
+             "tiendas": leer_hoja(wb, "Tiendas"),
+             "productos": leer_hoja(wb, "Productos")}
     with open(os.path.join(DOCS, "ropita_data.json"), "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"Base exportada: {len(datos['outfits'])} outfits, {len(datos['preguntas'])} preguntas")
+    print("Base exportada:", ", ".join(f"{len(v)} {k}" for k, v in datos.items()))
 
 
 SISTEMA = """Eres Ropita, un asistente de moda amable que habla español.
@@ -40,11 +44,15 @@ Basa tus respuestas en el PERFIL y el OUTFIT BASE que vienen de la base de datos
 alternativas, colores y consejos. Responde en máximo 120 palabras, con viñetas cuando ayuden.
 Habla directo a la persona: nunca menciones las palabras "PERFIL", "OUTFIT BASE" ni "base de datos".
 Si la persona es menor de edad, mantén recomendaciones apropiadas para su edad.
-Si te preguntan algo que no sea moda o vestuario, redirige amablemente la conversación."""
+Si te preguntan algo que no sea moda o vestuario, redirige amablemente la conversación.
+Si hablas de tiendas o precios, usa SOLO las tiendas y productos del CONTEXTO (son datos ficticios de ejemplo)
+y precios en pesos colombianos; no inventes otras tiendas ni marcas reales."""
 
 
-def chat_ollama(perfil, outfit, mensaje, historial):
+def chat_ollama(perfil, outfit, mensaje, historial, extra=""):
     contexto = f"PERFIL: {json.dumps(perfil, ensure_ascii=False)}\nOUTFIT BASE: {json.dumps(outfit, ensure_ascii=False)}"
+    if extra:
+        contexto += f"\nCONTEXTO (tiendas y productos ficticios): {extra[:4000]}"
     mensajes = [{"role": "system", "content": SISTEMA + "\n\n" + contexto}]
     mensajes += historial[-8:]
     mensajes.append({"role": "user", "content": mensaje})
@@ -72,7 +80,8 @@ class Handler(SimpleHTTPRequestHandler):
 
         if self.path == "/api/chat":
             try:
-                texto = chat_ollama(respuestas, datos.get("outfit"), datos.get("mensaje", ""), datos.get("historial", []))
+                texto = chat_ollama(respuestas, datos.get("outfit"), datos.get("mensaje", ""), datos.get("historial", []),
+                                    datos.get("contexto", ""))
                 return self.responder({"respuesta": texto})
             except (urllib.error.URLError, TimeoutError, KeyError) as e:
                 return self.responder({"error": f"No pude conectar con Ollama ({OLLAMA_URL}, modelo {OLLAMA_MODEL}): {e}"}, 503)

@@ -40,18 +40,32 @@
   footer { padding:10px 16px 12px; text-align:center; font-size:12px; line-height:1.5; color:var(--gris); background:#FAF7FF; border-top:1px solid #EEE; }
   footer strong { color:var(--morado); }
   .escribiendo { color:var(--gris); font-style:italic; }
+  .opciones.chips button { border-color:#DDD6FE; color:var(--texto); font-size:13px; }
+  .card .seccion { padding:10px 14px; border-top:1px solid #F3E8FF; line-height:1.45; }
+  .card .seccion b { color:var(--morado); }
+  .tienda h3 { display:flex; justify-content:space-between; gap:8px; }
+  .tienda .meta { padding:8px 14px 0; color:var(--gris); font-size:13px; line-height:1.5; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+  .badge.si { background:#DCFCE7; color:#166534; }
+  .badge.no { background:#FEE2E2; color:#991B1B; }
+  .tienda ul { list-style:none; margin:0; padding:8px 14px 12px; }
+  .tienda li { display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px dashed #EDE9FE; }
+  .tienda li:last-child { border-bottom:0; }
+  .tienda .precio { font-weight:700; white-space:nowrap; color:var(--texto); }
+  .tienda small { color:var(--gris); }
+  .nota { margin-left:38px; font-size:12px; color:var(--gris); }
 </style>
 </head>
 <body>
 <div class="app">
   <header>
     <img src="ropita-avatar.svg" alt="Ropita">
-    <div><h1>Ropita</h1><p>Tu asistente de estilo · outfit según clima y ocasión</p></div>
+    <div><h1>Ropita</h1><p>Tu asistente de estilo · outfits, estatura, gustos y tiendas</p></div>
   </header>
   <main id="chat" aria-live="polite"></main>
   <form id="form">
-    <input id="texto" placeholder="Responde las preguntas para empezar…" autocomplete="off" disabled>
-    <button id="enviar" disabled>Enviar</button>
+    <input id="texto" placeholder="Escríbeme: mido 1.60, me gusta lo urbano…" autocomplete="off">
+    <button id="enviar">Enviar</button>
   </form>
   <footer>
     Creado por <strong>Laura Galindo · Valentina Rodríguez · Sara Cárdenas · Joseth Sierra</strong><br>
@@ -59,107 +73,6 @@
   </footer>
 </div>
 
-<script>
-const chat = document.getElementById('chat');
-const form = document.getElementById('form');
-const input = document.getElementById('texto');
-const btn = document.getElementById('enviar');
-let respuestas = {}, outfit = null, historial = [];
-
-// En GitHub Pages no hay servidor ni Ollama: solo funcionan las preguntas guiadas.
-const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
-let OUTFITS = [], PREGUNTAS = [];
-
-const api = (ruta, cuerpo) => fetch(ruta, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cuerpo) })
-  .then(async r => ({ ok:r.ok, datos: await r.json() }))
-  .catch(() => ({ ok:false, datos:{ error:'No pude conectar con el servidor de Ropita.' } }));
-
-const limpiar = v => String(v).replace(/\s*\(.*\)$/, '').trim();  // 'Infantil (3-12 años)' -> 'Infantil'
-const filtrar = r => OUTFITS.filter(o => Object.entries(r).every(([k, v]) => o[k] === limpiar(v)));
-
-function burbuja(texto, quien = 'bot') {
-  const div = document.createElement('div');
-  div.className = 'msg ' + quien;
-  if (quien === 'bot') div.innerHTML = '<img src="ropita-avatar.svg" alt="">';
-  const b = document.createElement('div');
-  b.className = 'burbuja'; b.textContent = texto;
-  div.appendChild(b); chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-  return b;
-}
-
-function botones(lista, alElegir) {
-  const cont = document.createElement('div');
-  cont.className = 'opciones';
-  lista.forEach(op => {
-    const b = document.createElement('button');
-    b.textContent = op;
-    b.onclick = () => { cont.remove(); alElegir(op); };
-    cont.appendChild(b);
-  });
-  chat.appendChild(cont); chat.scrollTop = chat.scrollHeight;
-}
-
-function siguiente() {
-  const p = PREGUNTAS.find(p => !(p.clave in respuestas));
-  if (!p) return recomendar();
-  // Solo se ofrecen opciones que tengan al menos un outfit con las respuestas previas
-  const posibles = new Set(filtrar(respuestas).map(o => o[p.clave]));
-  burbuja(p.pregunta);
-  botones(p.opciones.split('|').filter(op => posibles.has(limpiar(op))),
-          op => { burbuja(op, 'user'); respuestas[p.clave] = op; siguiente(); });
-}
-
-function recomendar() {
-  outfit = filtrar(respuestas)[0];
-  if (!outfit) { burbuja('No encontré un outfit para esa combinación.'); return reiniciar(); }
-  burbuja(`¡Listo! Este es tu outfit para ${outfit.ocasion.toLowerCase()} ✨`);
-  const card = document.createElement('div');
-  card.className = 'card';
-  const filas = [['👕 Superior', outfit.prenda_superior], ['👖 Inferior', outfit.prenda_inferior], ['👟 Calzado', outfit.calzado],
-                 ['🧥 Abrigo', outfit.capa_abrigo], ['💍 Accesorio', outfit.accesorio], ['🎨 Colores', outfit.paleta_colores]];
-  card.innerHTML = `<h3>${outfit.perfil} · ${outfit.formalidad} · ${outfit.clima} · ${outfit.momento}</h3><dl></dl><div class="consejo"></div>`;
-  const dl = card.querySelector('dl');
-  filas.forEach(([k, v]) => {
-    const dt = document.createElement('dt'), dd = document.createElement('dd');
-    dt.textContent = k; dd.textContent = v; dl.append(dt, dd);
-  });
-  card.querySelector('.consejo').textContent = '💡 ' + outfit.consejo;
-  chat.appendChild(card);
-  if (LOCAL) {
-    burbuja('¿Quieres otra opción, cambiar colores o saber qué evitar? Escríbeme abajo (uso IA con Ollama) o empieza de nuevo.');
-    input.disabled = btn.disabled = false;
-    input.placeholder = 'Ej: ¿qué colores combinan con un jean negro?';
-    input.focus();
-  } else {
-    burbuja('¿Quieres pedir otro outfit? Toca el botón. (El chat libre con IA funciona al ejecutar Ropita en tu computador con Ollama.)');
-  }
-  botones(['🔄 Nuevo outfit'], reiniciar);
-}
-
-function reiniciar() {
-  respuestas = {}; outfit = null; historial = [];
-  input.disabled = btn.disabled = true; input.value = '';
-  input.placeholder = 'Responde las preguntas para empezar…';
-  siguiente();
-}
-
-form.onsubmit = async e => {
-  e.preventDefault();
-  const mensaje = input.value.trim();
-  if (!mensaje) return;
-  burbuja(mensaje, 'user'); input.value = ''; btn.disabled = true;
-  const espera = burbuja('Ropita está pensando…'); espera.classList.add('escribiendo');
-  const { ok, datos } = await api('/api/chat', { respuestas, outfit, mensaje, historial });
-  espera.parentElement.remove();
-  const texto = ok ? datos.respuesta : '⚠️ ' + datos.error;
-  burbuja(texto);
-  if (ok) historial.push({ role:'user', content:mensaje }, { role:'assistant', content:texto });
-  btn.disabled = false; input.focus();
-};
-
-fetch('ropita_data.json').then(r => r.json()).then(d => { OUTFITS = d.outfits; PREGUNTAS = d.preguntas; siguiente(); })
-  .catch(() => burbuja('No pude cargar la base de datos de Ropita.'));
-</script>
+<script src="app.js"></script>
 </body>
 </html>
